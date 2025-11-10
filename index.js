@@ -1,9 +1,66 @@
+require('dotenv').config();
 const mineflayer = require('mineflayer');
 const Movements = require('mineflayer-pathfinder').Movements;
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const { GoalBlock, GoalNear } = require('mineflayer-pathfinder').goals;
 
-const config = require('./settings.json');
+function bool(val, def = false) {
+  if (val === undefined) return def;
+  return String(val).toLowerCase() === 'true';
+}
+
+function num(val, def) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : def;
+}
+
+function csv(val, defArr = []) {
+  if (!val) return defArr;
+  return String(val).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+const config = {
+  'bot-account': {
+    username: process.env.BOT_USERNAME || 'DiasporaBot1',
+    password: process.env.BOT_PASSWORD || '',
+    type: process.env.BOT_AUTH || 'offline'
+  },
+  server: {
+    ip: process.env.SERVER_IP || 'Diiasporiana.aternos.me',
+    port: num(process.env.SERVER_PORT, 48941),
+    version: process.env.SERVER_VERSION || '1.12.1'
+  },
+  position: {
+    enabled: bool(process.env.POSITION_ENABLED, false),
+    x: num(process.env.POSITION_X, 0),
+    y: num(process.env.POSITION_Y, 0),
+    z: num(process.env.POSITION_Z, 0)
+  },
+  utils: {
+    'auto-auth': {
+      enabled: bool(process.env.AUTO_AUTH_ENABLED, false),
+      password: process.env.AUTO_AUTH_PASSWORD || ''
+    },
+    'anti-afk': {
+      enabled: bool(process.env.ANTI_AFK_ENABLED, true),
+      sneak: bool(process.env.ANTI_AFK_SNEAK, true)
+    },
+    'chat-messages': {
+      enabled: bool(process.env.CHAT_MESSAGES_ENABLED, true),
+      repeat: bool(process.env.CHAT_MESSAGES_REPEAT, true),
+      'repeat-delay': num(process.env.CHAT_MESSAGES_REPEAT_DELAY, 6000),
+      messages: csv(process.env.CHAT_MESSAGES, ['Я сто проц не бот.', 'Діяспоря кращий сервер', 'Пласт форевер'])
+    },
+    roam: {
+      enabled: bool(process.env.ROAM_ENABLED, true),
+      radius: num(process.env.ROAM_RADIUS, 8),
+      interval: num(process.env.ROAM_INTERVAL, 30)
+    },
+    'chat-log': bool(process.env.CHAT_LOG, true),
+    'auto-reconnect': bool(process.env.AUTO_RECONNECT, true),
+    'auto-recconect-delay': num(process.env.AUTO_RECONNECT_DELAY_MS, 30000)
+  }
+};
 const express = require('express');
 const http = require('http');
 
@@ -14,6 +71,7 @@ const PORT = 5000;
 let baseUsername = config['bot-account']['username'];
 let usernameCounter = 0;
 let currentUsername = baseUsername;
+let reconnectAttempts = 0;
 
 function nextUsername() {
   usernameCounter += 1;
@@ -134,6 +192,7 @@ function createBot() {
 
    bot.once('spawn', () => {
       console.log('\x1b[33m[AfkBot] Bot joined the server', '\x1b[0m');
+      reconnectAttempts = 0;
 
       if (config.utils['auto-auth'].enabled) {
          console.log('[INFO] Started auto-auth module');
@@ -245,10 +304,19 @@ function createBot() {
             console.log('\x1b[31m[INFO] Not reconnecting due to duplicate login.\x1b[0m');
             return;
          }
-         
+         const baseDelay = config.utils['auto-recconect-delay'] || 5000;
+         let delay = baseDelay;
+         if (reasonStr && /throttled/i.test(reasonStr)) {
+            delay = Math.max(baseDelay, 60000);
+         } else {
+            reconnectAttempts += 1;
+            delay = Math.min(300000, Math.floor(baseDelay * Math.pow(2, Math.max(0, reconnectAttempts - 1))));
+         }
+         delay += Math.floor(Math.random() * 3000);
+         console.log(`\x1b[33m[AfkBot] Reconnecting in ${Math.round(delay/1000)}s (reason: ${reasonStr || 'unknown'})\x1b[0m`);
          setTimeout(() => {
             createBot();
-         }, config.utils['auto-recconect-delay']);
+         }, delay);
       });
    }
 

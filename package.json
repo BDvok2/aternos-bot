@@ -1,8 +1,11 @@
 {
   "name": "aternos-bot",
   "module": "index.js",
-  "type": "module",
   "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

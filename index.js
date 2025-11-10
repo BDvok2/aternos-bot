@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const Movements = require('mineflayer-pathfinder').Movements;
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
-const { GoalBlock } = require('mineflayer-pathfinder').goals;
+const { GoalBlock, GoalNear } = require('mineflayer-pathfinder').goals;
 
 const config = require('./settings.json');
 const express = require('express');
@@ -17,7 +17,7 @@ let currentUsername = baseUsername;
 
 function nextUsername() {
   usernameCounter += 1;
-  return `${baseUsername} ${usernameCounter}`;
+  return `${baseUsername}${usernameCounter}`;
 }
 
 app.get('/', (req, res) => {
@@ -80,7 +80,9 @@ function createBot() {
    bot.loadPlugin(pathfinder);
    const mcData = require('minecraft-data')(bot.version);
    const defaultMove = new Movements(bot, mcData);
-   bot.settings.colorsEnabled = false;
+   if (bot.settings && typeof bot.settings.colorsEnabled !== 'undefined') {
+      bot.settings.colorsEnabled = false;
+   }
 
    let pendingPromise = Promise.resolve();
 
@@ -176,6 +178,22 @@ function createBot() {
          );
          bot.pathfinder.setMovements(defaultMove);
          bot.pathfinder.setGoal(new GoalBlock(pos.x, pos.y, pos.z));
+      }
+
+      // Roam around randomly if enabled and no fixed position goal is set
+      const roamCfg = (config.utils && config.utils['roam']) ? config.utils['roam'] : { enabled: false };
+      if (!config.position.enabled && roamCfg.enabled) {
+         console.log('[INFO] Started roam module');
+         const radius = roamCfg.radius || 8;
+         const interval = roamCfg.interval || 30; // seconds
+         setInterval(() => {
+            const p = bot.entity.position;
+            const tx = Math.round(p.x) + Math.floor((Math.random() * 2 - 1) * radius);
+            const tz = Math.round(p.z) + Math.floor((Math.random() * 2 - 1) * radius);
+            const ty = Math.round(p.y);
+            bot.pathfinder.setMovements(defaultMove);
+            bot.pathfinder.setGoal(new GoalNear(tx, ty, tz, 1));
+         }, interval * 1000);
       }
 
       if (config.utils['anti-afk'].enabled) {

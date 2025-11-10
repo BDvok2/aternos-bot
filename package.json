@@ -1,16 +1,17 @@
 {
-  "name": "Minecraft Afk Bot",
-  "version": "2.1",
-  "description": "Afk bot for minecraft servers.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "name": "aternos-bot",
+  "module": "index.js",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
   },
-  "author": "Lamgerr",
-  "license": "MIT",
+  "peerDependencies": {
+    "typescript": "^5"
+  },
   "dependencies": {
-    "express": "^4.18.1",
-    "mineflayer": "^4.3.0",
-    "mineflayer-pathfinder": "^2.1.1"
+    "express": "^5.1.0",
+    "mineflayer": "^4.33.0",
+    "mineflayer-pathfinder": "^2.4.5"
   }
 }

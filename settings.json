@@ -1,8 +1,8 @@
 {
   "bot-account": {
-    "username": "DiasporaBot", 
+    "username": "DiasporaBot1", 
     "password": "",
-    "type": "mojang"
+    "type": "offline"
   },
 
   "server": {
@@ -41,8 +41,14 @@
       ]
     },
 
+    "roam": {
+      "enabled": true,
+      "radius": 8,
+      "interval": 30
+    },
+
     "chat-log": true,
     "auto-reconnect": true,
-    "auto-recconect-delay": 5000
+    "auto-recconect-delay": 1000
   }
 }

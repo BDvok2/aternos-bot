@@ -61,11 +61,6 @@ const config = {
     'auto-recconect-delay': num(process.env.AUTO_RECONNECT_DELAY_MS, 30000)
   }
 };
-const express = require('express');
-const http = require('http');
-
-const app = express();
-const PORT = 5000;
 
 // Username rotation state
 let baseUsername = config['bot-account']['username'];
@@ -78,52 +73,7 @@ function nextUsername() {
   return `${baseUsername}${usernameCounter}`;
 }
 
-app.get('/', (req, res) => {
-  res.send('Bot is running and staying alive!');
-});
-
-app.get('/ping', (req, res) => {
-  const uptime = process.uptime();
-  const hours = Math.floor(uptime / 3600);
-  const minutes = Math.floor((uptime % 3600) / 60);
-  const seconds = Math.floor(uptime % 60);
-  
-  res.json({
-    status: 'alive',
-    message: 'Bot is running',
-    uptime: `${hours}h ${minutes}m ${seconds}s`,
-    timestamp: new Date().toISOString()
-  });
-});
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server started on port ${PORT}`);
-  
-  const replitUrl = process.env.REPLIT_DEV_DOMAIN 
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : `http://localhost:${PORT}`;
-  
-  console.log('\n==============================================');
-  console.log('🔗 KEEP-ALIVE URLs:');
-  console.log(`   Main: ${replitUrl}`);
-  console.log(`   Ping API: ${replitUrl}/ping`);
-  console.log('==============================================');
-  console.log('ℹ️  To keep this bot alive, ping one of the URLs');
-  console.log('   above using an external service like:');
-  console.log('   • UptimeRobot');
-  console.log('   • Cron-Job.org');
-  console.log('   • BetterUptime');
-  console.log('   Set interval: every 5 minutes');
-  console.log('==============================================\n');
-  
-  setInterval(() => {
-    http.get(`http://localhost:${PORT}`, (res) => {
-      console.log(`[Keep-Alive] Self-ping successful - Status: ${res.statusCode}`);
-    }).on('error', (err) => {
-      console.error('[Keep-Alive] Self-ping failed:', err.message);
-    });
-  }, 5 * 60 * 1000);
-});
+ 
 
 function createBot() {
    const bot = mineflayer.createBot({
@@ -134,6 +84,11 @@ function createBot() {
       port: config.server.port,
       version: config.server.version,
    });
+
+   // Ensure EventEmitter methods retain correct `this` when used unbound by plugins
+   if (bot && typeof bot.removeAllListeners === 'function') {
+      bot.removeAllListeners = bot.removeAllListeners.bind(bot);
+   }
 
    bot.loadPlugin(pathfinder);
    const mcData = require('minecraft-data')(bot.version);

@@ -28,7 +28,8 @@ const config = {
   server: {
     ip: process.env.SERVER_IP || 'Diiasporiana.aternos.me',
     port: num(process.env.SERVER_PORT, 48941),
-    version: process.env.SERVER_VERSION || '1.12.1'
+    version: process.env.SERVER_VERSION || '1.12.1',
+    checkTimeoutMs: num(process.env.CHECK_TIMEOUT_MS, 90000)
   },
   position: {
     enabled: bool(process.env.POSITION_ENABLED, false),
@@ -83,6 +84,7 @@ function createBot() {
       host: config.server.ip,
       port: config.server.port,
       version: config.server.version,
+      checkTimeoutInterval: config.server.checkTimeoutMs
    });
 
    // Ensure EventEmitter methods retain correct `this` when used unbound by plugins
@@ -244,12 +246,11 @@ function createBot() {
          console.log('\x1b[31m[ERROR] Please log out from the server or stop the other bot instance before reconnecting.\x1b[0m');
          console.log('\x1b[31m[ERROR] Auto-reconnect disabled for this session.\x1b[0m');
          bot.removeAllListeners('end');
+         // Prepare a new username ONLY for duplicate login cases
+         const oldUsername = currentUsername;
+         currentUsername = nextUsername();
+         console.log(`\x1b[36m[AfkBot] Next reconnect will use username: "${currentUsername}" (previous: "${oldUsername}")\x1b[0m`);
       }
-
-      // Prepare a new username for the next reconnect attempt
-      const oldUsername = currentUsername;
-      currentUsername = nextUsername();
-      console.log(`\x1b[36m[AfkBot] Next reconnect will use username: "${currentUsername}" (previous: "${oldUsername}")\x1b[0m`);
    });
 
    if (config.utils['auto-reconnect']) {

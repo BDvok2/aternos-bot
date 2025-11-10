@@ -10,6 +10,16 @@ const http = require('http');
 const app = express();
 const PORT = 5000;
 
+// Username rotation state
+let baseUsername = config['bot-account']['username'];
+let usernameCounter = 0;
+let currentUsername = baseUsername;
+
+function nextUsername() {
+  usernameCounter += 1;
+  return `${baseUsername} ${usernameCounter}`;
+}
+
 app.get('/', (req, res) => {
   res.send('Bot is running and staying alive!');
 });
@@ -59,7 +69,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
 function createBot() {
    const bot = mineflayer.createBot({
-      username: config['bot-account']['username'],
+      username: currentUsername,
       password: config['bot-account']['password'],
       auth: config['bot-account']['type'],
       host: config.server.ip,
@@ -203,6 +213,11 @@ function createBot() {
          console.log('\x1b[31m[ERROR] Auto-reconnect disabled for this session.\x1b[0m');
          bot.removeAllListeners('end');
       }
+
+      // Prepare a new username for the next reconnect attempt
+      const oldUsername = currentUsername;
+      currentUsername = nextUsername();
+      console.log(`\x1b[36m[AfkBot] Next reconnect will use username: "${currentUsername}" (previous: "${oldUsername}")\x1b[0m`);
    });
 
    if (config.utils['auto-reconnect']) {

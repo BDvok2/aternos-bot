@@ -99,7 +99,7 @@ let reconnectAttempts = 0;
 
 function nextUsername() {
   
-  return `${baseUsername};
+  return `${baseUsername}`;
 }
 
  

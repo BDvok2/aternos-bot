@@ -115,7 +115,7 @@ function createBot() {
       checkTimeoutInterval: config.server.checkTimeoutMs
    });
 
-   // Ensure EventEmitter methods retain correct `this` when used unbound by plugins
+   // Ensure EventEmitter method keeps correct `this` when captured unbound by plugins
    if (bot && typeof bot.removeAllListeners === 'function') {
       bot.removeAllListeners = bot.removeAllListeners.bind(bot);
    }

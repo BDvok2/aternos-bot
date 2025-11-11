@@ -6,6 +6,7 @@ const { GoalBlock, GoalNear } = require('mineflayer-pathfinder').goals;
 const express = require('express');
 const http = require('http');
 const https = require('https');
+const mcproto = require('minecraft-protocol');
 
 function bool(val, def = false) {
   if (val === undefined) return def;
@@ -96,6 +97,9 @@ let baseUsername = config['bot-account']['username'];
 let usernameCounter = 0;
 let currentUsername = baseUsername;
 let reconnectAttempts = 0;
+let botInstance = null; // Track the active bot instance
+let msgTimer = null;    // Interval for chat messages
+let roamTimer = null;   // Interval for roaming
 
 function nextUsername() {
   
@@ -105,6 +109,11 @@ function nextUsername() {
  
 
 function createBot() {
+   if (botInstance) {
+      console.log('[AfkBot] Bot already running; createBot skipped');
+      return;
+   }
+
    const bot = mineflayer.createBot({
       username: currentUsername,
       password: config['bot-account']['password'],
@@ -114,6 +123,8 @@ function createBot() {
       version: config.server.version,
       checkTimeoutInterval: config.server.checkTimeoutMs
    });
+
+   botInstance = bot;
 
    // Ensure EventEmitter method keeps correct `this` when captured unbound by plugins
    if (bot && typeof bot.removeAllListeners === 'function') {
@@ -198,8 +209,10 @@ function createBot() {
             const delay = config.utils['chat-messages']['repeat-delay'];
             let i = 0;
 
-            let msg_timer = setInterval(() => {
-               bot.chat(`${messages[i]}`);
+            msgTimer = setInterval(() => {
+               // Guard against sending on closed socket which can cause EPIPE
+               if (!bot._client || !bot._client.socket || bot._client.socket.destroyed) return;
+               try { bot.chat(`${messages[i]}`); } catch (_) {}
 
                if (i + 1 === messages.length) {
                   i = 0;
@@ -209,7 +222,7 @@ function createBot() {
             }, delay * 1000);
          } else {
             messages.forEach((msg) => {
-               bot.chat(msg);
+               try { bot.chat(msg); } catch (_) {}
             });
          }
       }
@@ -230,7 +243,7 @@ function createBot() {
          console.log('[INFO] Started roam module');
          const radius = roamCfg.radius || 8;
          const interval = roamCfg.interval || 30; // seconds
-         setInterval(() => {
+         roamTimer = setInterval(() => {
             const p = bot.entity.position;
             const tx = Math.round(p.x) + Math.floor((Math.random() * 2 - 1) * radius);
             const tz = Math.round(p.z) + Math.floor((Math.random() * 2 - 1) * radius);
@@ -288,6 +301,10 @@ function createBot() {
             console.log('\x1b[31m[INFO] Not reconnecting due to duplicate login.\x1b[0m');
             return;
          }
+         // Clear intervals to avoid writing to a closed socket (prevents EPIPE)
+         if (msgTimer) { clearInterval(msgTimer); msgTimer = null; }
+         if (roamTimer) { clearInterval(roamTimer); roamTimer = null; }
+         botInstance = null;
          const baseDelay = config.utils['auto-recconect-delay'] || 5000;
          let delay = baseDelay;
          if (reasonStr && /throttled/i.test(reasonStr)) {
@@ -308,5 +325,35 @@ function createBot() {
       console.log(`\x1b[31m[ERROR] ${err.message}`, '\x1b[0m')
    );
 }
+
+// Periodically check if the server is empty and, if so, start the keep-alive bot
+const SERVER_CHECK_INTERVAL_MS = Number(process.env.SERVER_CHECK_INTERVAL_MS) || 60000;
+async function isServerEmpty() {
+  return new Promise((resolve) => {
+    mcproto.ping(
+      { host: config.server.ip, port: config.server.port, version: config.server.version },
+      (err, res) => {
+        if (err) {
+          console.log(`[ServerCheck] ping error: ${err.message}`);
+          return resolve(false);
+        }
+        const online = (res && res.players && typeof res.players.online === 'number') ? res.players.online : 0;
+        resolve(online === 0);
+      }
+    );
+  });
+}
+
+setInterval(async () => {
+  try {
+    const empty = await isServerEmpty();
+    if (empty && !botInstance) {
+      console.log('[ServerCheck] Server empty. Spawning keep-alive bot...');
+      createBot();
+    }
+  } catch (e) {
+    console.log(`[ServerCheck] error: ${e.message}`);
+  }
+}, SERVER_CHECK_INTERVAL_MS);
 
 createBot();

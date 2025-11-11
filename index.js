@@ -3,6 +3,9 @@ const mineflayer = require('mineflayer');
 const Movements = require('mineflayer-pathfinder').Movements;
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const { GoalBlock, GoalNear } = require('mineflayer-pathfinder').goals;
+const express = require('express');
+const http = require('http');
+const https = require('https');
 
 function bool(val, def = false) {
   if (val === undefined) return def;
@@ -62,6 +65,31 @@ const config = {
     'auto-recconect-delay': num(process.env.AUTO_RECONNECT_DELAY_MS, 30000)
   }
 };
+
+const app = express();
+app.get('/', (req, res) => {
+  res.send('ok');
+});
+const SELF_PORT = Number(process.env.PORT) || 3000;
+const server = app.listen(SELF_PORT, () => {
+  console.log(`[Self-Ping] Listening on ${SELF_PORT}`);
+});
+const SELF_PING_URL = process.env.SELF_PING_URL || `http://localhost:${SELF_PORT}/`;
+setInterval(() => {
+  try {
+    const urlObj = new URL(SELF_PING_URL);
+    const client = urlObj.protocol === 'https:' ? https : http;
+    client
+      .get(SELF_PING_URL, (res) => {
+        res.resume();
+      })
+      .on('error', (err) => {
+        console.log(`[Self-Ping] error: ${err.message}`);
+      });
+  } catch (e) {
+    console.log(`[Self-Ping] invalid URL: ${SELF_PING_URL} (${e.message})`);
+  }
+}, 120000);
 
 // Username rotation state
 let baseUsername = config['bot-account']['username'];

@@ -98,8 +98,8 @@ let currentUsername = baseUsername;
 let reconnectAttempts = 0;
 
 function nextUsername() {
-  usernameCounter += 1;
-  return `${baseUsername}${usernameCounter}`;
+  
+  return `${baseUsername};
 }
 
  
